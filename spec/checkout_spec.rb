@@ -1,90 +1,69 @@
 require_relative "../checkout.rb"
-require "spec_helper.rb"
+require "spec_helper"
 
 RSpec.describe "Checkout" do
-  let(:pricing_rules) { { FR1: 3.11, SR1: 5.00, CF1: 11.23 }  }
   let(:checkout) { Checkout.new(pricing_rules) }
-
-  before(:each) { checkout.order_items.clear }
+  let(:pricing_rules) { instance_double("PricingRule") }
 
   describe "#scan" do
-    let(:item) { "FR1" }
+    context "when one item has been scanned" do
+      it "returns an item" do
+        expect(checkout.scan("FR1")).to eq [:FR1]
+      end
+    end
 
-    before { checkout.scan("FR1") }
+    context "when more items have been scanned" do
+      before { checkout.scan("FR1") }
 
-    it "adds an item to the order items" do
-      expect(checkout.order_items).to eq([:FR1])
+      it "returns all of the items in the basket" do
+        expect(checkout.scan("FR1")).to eq [:FR1, :FR1]
+      end
     end
   end
 
   describe "#total" do
-    context "when no discounts need to be applied" do
-
-      before do
-        checkout.scan("FR1")
-        checkout.scan("SR1")
-        checkout.scan("CF1")
-      end
-
-      it "calculates the total correctly" do
-        expect(checkout.total).to eq(19.34)
-      end
+    before do 
+      allow(pricing_rules).to receive(:total_discount).and_return(discount)
+      allow(pricing_rules).to receive(:price).with(:FR1).and_return(3.11)
+      allow(pricing_rules).to receive(:price).with(:SR1).and_return(5.00)
+      allow(pricing_rules).to receive(:price).with(:CF1).and_return(11.23)
     end
 
-    context "when the fruit tea buy one get one free offer needs to be applied" do
-      before do
-        2.times { checkout.scan("FR1") }
-        checkout.scan("SR1")
-      end
+    context "when the basket is FR1, SR1, FR1, FR1, CF1" do
 
-      it "calculates the total correctly" do
-        expect(checkout.total).to eq(8.11)
-      end
-    end
+      let(:discount) { 3.11 }
 
-    context "when the strawberry discount needs to be applied" do
-      before do
-        3.times { checkout.scan("SR1") }
-        checkout.scan("FR1")
-      end
-
-      it "calculates the total correctly" do
-        expect(checkout.total).to eq(16.61)
-      end
-    end
-  end
-
-  describe "test cases" do
-    context "FR1, SR1, FR1, FR1, CF1" do
       before do
         3.times { checkout.scan("FR1") }
         checkout.scan("SR1")
         checkout.scan("CF1")
       end
 
-      it "calculates the total correctly" do
-        expect(checkout.total).to eq(22.45)
+      it "calculates the correct price" do
+        expect(checkout.total).to eq 22.45
       end
     end
 
     context "FR1, FR1" do
-      before do
-        2.times { checkout.scan("FR1") }
-      end
+      let(:discount) { 0 }
+
+      before { 2.times { checkout.scan("FR1") } }
 
       it "calculates the total correctly" do
-        expect(checkout.total).to eq(3.11)
+        expect(checkout.total).to eq 6.22
       end
     end
 
     context "SR1, SR1, FR1, SR1" do
+      let(:discount) { 1.50 }
+
       before do
         3.times { checkout.scan("SR1") }
         checkout.scan("FR1")
       end
 
       it "calculates the total correctly" do
-        expect(checkout.total).to eq(16.61)
+        expect(checkout.total).to eq 16.61
       end
     end
   end
